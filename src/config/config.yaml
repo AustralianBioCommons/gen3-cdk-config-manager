@@ -1,0 +1,24 @@
+dev:
+  name: "dev"
+  clusterName: "Gen3-Eks-pipeline-cad-dev"
+  aws:
+    account: "232870232581"
+    region: "ap-southeast-2"
+  platformRoleName: ""
+  vpcId: ""
+  namespace: "cad"
+  workloadRepoUrl: "git@github.com:AustralianBioCommons/gen3-workloads-example.git"
+  targetRevision: "main"
+tools:
+  # We are are using the same AWS account here for testing/dev purposes. 
+  # Use a dedicated tools account for production workloads
+  name: "tools"
+  aws:
+    account: "232870232581"
+    region: "ap-southeast-2"
+  platformRoleName: ""
+  vpcId: ""
+  namespace: ""
+  subnets: []
+  workloadRepoUrl: ""
+  targetRevision: ""
