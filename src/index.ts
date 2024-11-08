@@ -69,7 +69,7 @@ const clusterConfig = yaml.parse(fs.readFileSync(clusterConfigPath, 'utf-8')) as
 const blueprintRepoConfig = yaml.parse(fs.readFileSync(blueprintRepoConfigPath, 'utf-8'));
 
 // SSM parameter handling
-async function handleSsmParameter(parameterName: string, value: string, overwrite: boolean) {
+export async function handleSsmParameter(parameterName: string, value: string, overwrite: boolean) {
   const parameterExists = await parameterExistsInSSM(parameterName);
   if (!parameterExists || overwrite) {
     await updateSsmParameter(parameterName, value, overwrite);
@@ -78,17 +78,21 @@ async function handleSsmParameter(parameterName: string, value: string, overwrit
   }
 }
 
-async function parameterExistsInSSM(parameterName: string): Promise<boolean> {
+export async function parameterExistsInSSM(parameterName: string): Promise<boolean> {
   try {
     const command = new GetParameterCommand({ Name: parameterName });
     await ssmClient.send(command);
     return true;
   } catch (error) {
-    return (error as any).name === 'ParameterNotFound' ? false : Promise.reject(error);
+        // Use a type guard to verify that `error` has a `name` property
+        if (isAwsError(error) && error.name === 'ParameterNotFound') {
+          return false;
+        }
+        throw error;
   }
 }
 
-async function updateSsmParameter(parameterName: string, value: string, overwrite: boolean) {
+export async function updateSsmParameter(parameterName: string, value: string, overwrite: boolean) {
   const command = new PutParameterCommand({
     Name: parameterName,
     Value: value,
@@ -99,7 +103,7 @@ async function updateSsmParameter(parameterName: string, value: string, overwrit
   await ssmClient.send(command);
 }
 
-function generateRandomPassword(length = 16) {
+export function generateRandomPassword(length = 16) {
   return crypto.randomBytes(length).toString('base64').slice(0, length);
 }
 
@@ -114,13 +118,15 @@ async function cancelSecretDeletion(secretName: string) {
       console.log(`Restored secret marked for deletion: ${secretName}`);
     }
   } catch (error) {
-    if ((error as any).name !== 'ResourceNotFoundException') {
+      // Use a type guard to verify that `error` has a `name` property
+      if (isAwsError(error) && error.name === 'ResourceNotFoundException') {
+        return false;
+      }
       throw error;
-    }
   }
 }
 
-async function handleArgoCdAdminSecret(env: string) {
+export async function handleArgoCdAdminSecret(env: string) {
   const secretName = `argocdAdmin-${env}`;
   try {
     await cancelSecretDeletion(secretName);
@@ -129,7 +135,7 @@ async function handleArgoCdAdminSecret(env: string) {
     await secretsManagerClient.send(getSecretCommand);
     console.log(`Secret ${secretName} already exists; skipping creation.`);
   } catch (error) {
-    if ((error as any).name === 'ResourceNotFoundException') {
+    if (isAwsError(error) && error.name === 'ResourceNotFoundException') {
       const secretValue = generateRandomPassword();
       const createSecretCommand = new CreateSecretCommand({
         Name: secretName,
@@ -143,7 +149,7 @@ async function handleArgoCdAdminSecret(env: string) {
   }
 }
 
-async function processBlueprintRepoConfig() {
+export async function processBlueprintRepoConfig() {
   const parameterName = '/gen3/eks-blueprint-repo';
   const blueprintRepoData = {
     gitRepoOwner: blueprintRepoConfig.gitRepoOwner,
@@ -162,11 +168,9 @@ async function processAwsConfig() {
   }
 }
 
-async function processEnvironmentConfig(env: string) {
+export async function processEnvironmentConfig(env: string) {
   console.log(`Processing configuration for environment: ${env}`);
   
-  const configData = configs[env];
-
   const iamRolesData = iamRolesConfig.services[env];
   if (iamRolesData) {
     const iamRolesParameterName = `/gen3/${env}/iamRolesConfig`;
@@ -184,6 +188,10 @@ async function processEnvironmentConfig(env: string) {
   }
 
   await handleArgoCdAdminSecret(env);
+}
+
+function isAwsError(error: unknown): error is { name: string } {
+  return typeof error === 'object' && error !== null && 'name' in error;
 }
 
 // Process each environment and the blueprint repo config
