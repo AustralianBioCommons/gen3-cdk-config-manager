@@ -12,7 +12,8 @@ import { Config, IamRolesConfig, ClusterConfig } from "@australianbiocommons/gen
 interface Arguments {
   configDir: string;
   environments: string[];
-  update: boolean;
+  updateenv: boolean;
+  updatenetwork: boolean;
 }
 
 const region = process.env.AWS_REGION || 'ap-southeast-2';
@@ -33,7 +34,12 @@ const argv: Arguments = yargs(hideBin(process.argv))
     description: 'List of environments to process',
     demandOption: true, // Make it required
   })
-  .option('update', {
+  .option('updateenv', {
+    type: 'boolean',
+    description: 'Overwrite existing parameters in SSM',
+    default: false,
+  })
+  .option('updatenetwork', {
     type: 'boolean',
     description: 'Overwrite existing parameters in SSM',
     default: false,
@@ -43,20 +49,21 @@ const argv: Arguments = yargs(hideBin(process.argv))
 
 // Retrieve command-line arguments
 const environments = argv.environments;
-const overwrite = argv.update;
+const overwrite = argv.updateenv;
+const updateNetwork = argv.updatenetwork;
 
 const configDir = path.resolve(__dirname, argv.configDir);
 
 console.log(configDir)
 // Load configuration files using the resolved configDir
-const jsonConfigPath = path.join(configDir, 'config.json');
+const jsonConfigPath = path.join(configDir, 'config.yaml');
 const yamlConfigPath = path.join(configDir, 'iamRolesConfig.yaml');
 const clusterConfigPath = path.join(configDir, 'clusterConfig.yaml');
 const blueprintRepoConfigPath = path.join(configDir, 'blueprint-repo.yaml');
 
 // Load configuration files
 
-const configs = JSON.parse(fs.readFileSync(jsonConfigPath, 'utf-8')) as Config;
+const configs = yaml.parse(fs.readFileSync(jsonConfigPath, 'utf-8')) as Config;
 const iamRolesConfig = yaml.parse(fs.readFileSync(yamlConfigPath, 'utf-8')) as IamRolesConfig;
 const clusterConfig = yaml.parse(fs.readFileSync(clusterConfigPath, 'utf-8')) as ClusterConfig;
 const blueprintRepoConfig = yaml.parse(fs.readFileSync(blueprintRepoConfigPath, 'utf-8'));
@@ -146,16 +153,19 @@ async function processBlueprintRepoConfig() {
   await handleSsmParameter(parameterName, JSON.stringify(blueprintRepoData), true);
 }
 
+async function processAwsConfig() {
+  if (configs) {
+    const parameterName = `/gen3/config`;
+    await handleSsmParameter(parameterName, JSON.stringify(configs), updateNetwork);
+  } else {
+    console.warn('No config data found');
+  }
+}
+
 async function processEnvironmentConfig(env: string) {
   console.log(`Processing configuration for environment: ${env}`);
   
   const configData = configs[env];
-  if (configData) {
-    const parameterName = `/gen3/${env}/config`;
-    await handleSsmParameter(parameterName, JSON.stringify(configData), overwrite);
-  } else {
-    console.warn(`No config data found for environment: ${env}`);
-  }
 
   const iamRolesData = iamRolesConfig.services[env];
   if (iamRolesData) {
@@ -179,6 +189,7 @@ async function processEnvironmentConfig(env: string) {
 // Process each environment and the blueprint repo config
 (async () => {
   await processBlueprintRepoConfig();
+  await processAwsConfig();
   for (const env of environments) {
     await processEnvironmentConfig(env);
   }

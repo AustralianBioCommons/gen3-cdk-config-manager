@@ -47,7 +47,7 @@ The script expects configuration files to be in a directory, with `.secrets/` as
 
 Create the configuration files in the path as follows:
 
--   **config.json**: Contains the general configuration for each environment.
+-   **config.yaml**: Contains the general configuration for each environment.
 -   **iamRolesConfig.yaml**: Holds IAM roles configuration for different services across environments.
 -   **clusterConfig.yaml**: Contains EKS cluster configuration details.
 -   **blueprint-repo.yaml**: Holds information about the GitHub repository for EKS blueprints.
@@ -65,7 +65,7 @@ Script Functions
 
 The script loads configuration data from the specified directory:
 
--   **config.json**: General configuration for each environment.
+-   **config.yaml**: General configuration for each environment.
 -   **iamRolesConfig.yaml**: IAM roles configuration for different services across environments.
 -   **clusterConfig.yaml**: EKS cluster configuration details.
 -   **blueprint-repo.yaml**: GitHub repository information for EKS blueprints.
@@ -74,8 +74,9 @@ The script loads configuration data from the specified directory:
 
 -   **SSM Parameters**:
 
-    -   Updates or creates parameters in AWS SSM Parameter Store, depending on the presence of the `--update` flag.
+    -   Updates or creates parameters in AWS SSM Parameter Store, depending on the presence of the `--updateenv` flag, `--updatenetwork` for the AWS network parameter.
     -   Supports configurations for each specified environment.
+
 -   **Secrets Manager**:
 
     -   Manages the ArgoCD admin password for each environment.
@@ -91,22 +92,33 @@ The tool expects a specific directory structure for configuration files. By defa
 
 The expected files are:
 
--   `config.json`: Contains environment-specific configuration.
+-   `config.yaml`: Contains environment-specific configuration.
 -   `iamRolesConfig.yaml`: Defines IAM roles configuration for services.
 -   `clusterConfig.yaml`: Contains cluster configuration settings.
 -   `blueprint-repo.yaml`: Configuration for the blueprint repository.
 
 ### Running the Script
 
-You can run the configuration manager script with the following command:
+**Quick Start**
 
-        npx ts-node src/index.ts --configDir <path-to-config-dir> --environments <env1> <env2> ... --update
+1. Update the configuration files found in `src/config` with your own AWS account details.
+2. Deploy the configuration to your tools/management or dev account:
+
+        npx ts-node src/index.ts --configDir ./config --environments dev
+
+For subsequent config deployments, you will need provide the following flags `--updateenv` or `--updatenetwork`, or both , in order to make updates to existing parameter stores. 
+
+Example:
+
+        npx ts-node src/index.ts --configDir <path-to-config-dir> \
+        --environments <env1> <env2> ... --updateenv --updatenetwork
 
 #### Parameters
 
 -   `--configDir`: (Optional) Path to the configuration directory. Defaults to `.secrets`.
 -   `--environments`: (Required) List of environments to process (e.g., `dev staging prod`).
--   `--update`: (Optional) Flag to overwrite existing parameters in SSM. Defaults to `false`.
+-   `--updateenv`: (Optional) Flag to overwrite existing parameters in SSM. Defaults to `false`.
+-   `--updatenetwork`: (Optional) Flag to overwrite existing global parameter (`/gen3/config`) in SSM. Defaults to `false`.
 
 
 Script Details
