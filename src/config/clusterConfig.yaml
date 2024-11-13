@@ -10,4 +10,16 @@ clusters:
     tags:
       Name: "GEN3 Cluster"
       Type: "ACDC"
-      ENV: "test"
+      ENV: "dev"
+  sbx:
+    version: "1.30"
+    minSize: 1
+    maxSize: 1
+    desiredSize: 1
+    diskSize: 100
+    amiReleaseVersion: "1.30.0-20240703"
+    instanceType: "m5.2xlarge"
+    tags:
+      Name: "GEN3 Cluster"
+      Type: "ACDC"
+      ENV: "sbx"
