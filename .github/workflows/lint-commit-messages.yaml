@@ -19,7 +19,7 @@ jobs:
         run: npm install
 
       - name: Run ESLint
-        run: npx eslint ./lib ./bin
+        run: npx eslint ./src
   commitlint:
     runs-on: ubuntu-latest
     steps:
